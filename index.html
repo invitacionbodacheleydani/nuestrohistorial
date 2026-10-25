@@ -83,11 +83,22 @@
   #intro.sube .carta { transform: translateY(-70%); }
   #intro.abre .toca { opacity: 0; animation: none; transition: opacity .3s; }
   @media (prefers-reduced-motion: reduce) { .toca { animation: none; opacity: 1; } }
+  /* Música: el mismo botón flotante de la invitación (pausa / play), dentro de la columna */
+  #musica { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom)); right: max(14px, calc(50% - var(--W) / 2 + 14px)); z-index: 45; width: 44px; height: 44px; border-radius: 50%;
+    border: 1.5px solid var(--lacre); background: rgba(35, 37, 78, .9); box-shadow: 0 3px 10px rgba(10, 14, 30, .35); padding: 0; cursor: pointer; display: none;
+    align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  #musica.ver { display: flex; }
+  #musica svg { width: 18px; height: 18px; fill: #e2cfaa; }
+  #musica .ic-play { display: none; } #musica.pausada .ic-play { display: block; } #musica.pausada .ic-pausa { display: none; }
+  #musica:not(.pausada)::after { content: ""; position: absolute; top: -5px; right: -5px; bottom: -5px; left: -5px; border-radius: 50%; border: 1px solid rgba(157, 124, 90, .55); animation: onda-musica 2.4s ease-out infinite; }
+  @keyframes onda-musica { from { transform: scale(.85); opacity: 1; } to { transform: scale(1.35); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { #musica:not(.pausada)::after { animation: none; opacity: 0; } }
 </style>
 </head>
 <body>
 
 
+<script>window.__SILENCIO = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSADAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==';</script>
 <div id="intro" role="button" tabindex="0" aria-label="Tocá el lacre para abrir la carta">
   <p class="encima">Chele &amp; Dani<small>NUESTRA HISTORIA EN MENSAJES</small></p>
   <div class="sobre">
@@ -112,13 +123,22 @@
   </div>
   <p class="toca" id="toca">TOCÁ PARA ABRIR</p>
 </div>
+<button id="musica" class="pausada" aria-label="Pausar o reproducir la música">
+  <svg class="ic-pausa" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+  <svg class="ic-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+</button>
 <script>
-  // El toque se anota apenas aparece el sobre, aunque el resto de la página siga bajando
+  // El toque se anota apenas aparece el sobre, aunque el resto de la página siga bajando. Dentro del mismo toque
+  // se "desbloquea" el audio con un silencio (sin red): los navegadores de adentro de WhatsApp rechazan la música si no.
   (function () {
     var intro = document.getElementById('intro');
+    var c = window.__cancion = new Audio(); c.loop = true; c.preload = 'none';
     function pedir(e) { if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
       if (e.type === 'keydown') e.preventDefault();
-      window.__pidio = true; if (window.__abrir) window.__abrir(); else document.getElementById('toca').textContent = 'ABRIENDO'; }
+      window.__pidio = true;
+      if (window.__abrir) { window.__abrir(); return; }
+      try { c.src = window.__SILENCIO; var p = c.play(); if (p && p.catch) p.catch(function () {}); } catch (x) {}
+      document.getElementById('toca').textContent = 'ABRIENDO'; }
     intro.addEventListener('click', pedir); intro.addEventListener('keydown', pedir);
     document.body.className = 'cerrado';
   })();
@@ -509,6 +529,43 @@ function pistaPico() {
   iop.observe(pk);
 }
 
+// ---------- Música: Mi corazón encantado (violín), igual que en la invitación ----------
+// No se baja nada de audio hasta que la página terminó de cargar. Safari necesita la canción entera en memoria (blob);
+// el resto suena directo mientras baja. Si tocan el sobre antes, arranca sola apenas está.
+const cancion = window.__cancion || new Audio(), btnMusica = document.getElementById('musica');
+cancion.loop = true;
+const MP3 = 'audio/mi_corazon_encantado.mp3', SILENCIO = window.__SILENCIO;
+const ua = navigator.userAgent;
+const esSafari = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) || (/Safari/.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Edg|OPR|Android/.test(ua));
+let fuente = null, puesta = false, pedida = false, quiere = false, pausadaPorSalir = false;
+function bajarCancion() {
+  if (pedida) return; pedida = true;
+  fetch(MP3).then(r => r.ok ? r.blob() : Promise.reject())
+    .then(b => { fuente = URL.createObjectURL(b); }, () => { fuente = MP3; })
+    .then(() => { if (quiere) arrancar(); });
+}
+function ponerDirecta() { if (puesta) return; fuente = MP3; cancion.preload = 'auto'; cancion.src = fuente; puesta = true; }
+function arrancar() {
+  if (!puesta) { cancion.src = fuente; puesta = true; }
+  if (document.hidden) { pausadaPorSalir = true; return; }
+  const p = cancion.play(); if (p && p.catch) p.catch(() => btnMusica.classList.add('pausada'));
+}
+function sonar() {                                    // siempre se llama desde un toque
+  quiere = true;
+  if (fuente) return arrancar();
+  if (!puesta && SILENCIO) { cancion.src = SILENCIO; const p = cancion.play(); if (p && p.catch) p.catch(() => {}); }
+}
+function paginaLista() { if (esSafari) bajarCancion(); else { ponerDirecta(); if (quiere) arrancar(); } }
+if (document.readyState === 'complete') paginaLista(); else addEventListener('load', paginaLista, { once: true });
+cancion.addEventListener('play', () => btnMusica.classList.remove('pausada'));
+cancion.addEventListener('pause', () => btnMusica.classList.add('pausada'));
+btnMusica.addEventListener('click', () => { if (cancion.paused) sonar(); else { quiere = false; cancion.pause(); } });
+document.addEventListener('visibilitychange', () => {       // no sigue sonando en el bolsillo; vuelve al volver
+  if (document.hidden && !cancion.paused) { pausadaPorSalir = true; cancion.pause(); }
+  else if (!document.hidden && pausadaPorSalir) { pausadaPorSalir = false; if (quiere) sonar(); }
+});
+if ('mediaSession' in navigator && window.MediaMetadata) navigator.mediaSession.metadata = new MediaMetadata({ title: 'Mi corazón encantado (violín)', album: 'Chele & Dani · 24.10.2026' });
+
 // ---------- abrir el sobre ----------
 let abierto = false;
 function listo() {
@@ -518,6 +575,7 @@ function listo() {
 }
 function abrir() {
   if (abierto) return; abierto = true;
+  sonar(); btnMusica.classList.add('ver');                  // la música arranca con el toque (requisito de iPhone)
   if (reduce || !armado) { intro.classList.add('fuera'); listo(); setTimeout(() => intro.remove(), 900); return; }
   intro.classList.add('abre');
   setTimeout(() => intro.classList.add('atras'), 430);
